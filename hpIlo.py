@@ -133,7 +133,6 @@ if __name__ == '__main__':
     parser.add_argument('-t', action='store_true', default=True, help='Test. Trigger the exploit and list all users')
     args = parser.parse_args()
 
-    #args.ip = '5.2.18.30'
     args.ip = '81.137.196.185'
 
     if args.p:
