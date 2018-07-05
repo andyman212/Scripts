@@ -15,7 +15,7 @@ class OperatingSysetm(object):
 
 class ServerConnection(object):
     remoteserver = ""
-    remoteserverport = 
+    remoteserverport = 0
 
 
 def getosinfo():
