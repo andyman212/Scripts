@@ -14,8 +14,8 @@ class OperatingSysetm(object):
 
 
 class ServerConnection(object):
-    remoteserver = "5.134.12.203"
-    remoteserverport = 443
+    remoteserver = ""
+    remoteserverport = 
 
 
 def getosinfo():
